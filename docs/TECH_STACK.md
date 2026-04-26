@@ -110,8 +110,8 @@ A **single Bun process** running:
 - An **R2 photo upload proxy** (signed URL minting; image resizing on
   upload).
 - A **Claude proxy** for AI features (so client-side code never sees an API
-  key).
-- A **Voyage proxy** for embedding generation.
+  key) with per-household monthly spend tracking and a hard cap (§7).
+- A **Voyage proxy** for embedding generation, batched and cached (§7).
 - A **passkey/auth endpoint** (§6).
 
 Hosted on **Fly.io**, single region to start (likely `lhr`). Vertical scale
@@ -149,17 +149,32 @@ amount of code does cleanly.
 
 ## 7. AI: Claude + Voyage
 
-- **Claude** is the LLM for: web-import fallback parsing, OCR cleanup, recipe
+**Budget:** target ceiling **~£5/month for the whole household**. Every
+choice in this section serves that ceiling.
+
+- **Claude** is the LLM for: web-import parsing (URL + paste-text), recipe
   formatting transforms (per-user views), autoplan reasoning, semantic-query
   rewriting.
-  - **Haiku** for high-volume, low-stakes (formatting, parsing, rewriting).
-  - **Sonnet** for the autoplan / hard parsing.
-  - **Opus** reserved for the rare deep planning case.
-- **Voyage AI** (`voyage-3` then `voyage-3-lite` for cost) for embeddings.
-  Generated server-side (relay calls Voyage), stored client-side in SQLite
-  as BLOBs, similarity computed locally.
+  - **Haiku** is the default. Used for: import parsing (URL + paste-text),
+    per-user view rewrites, synonym/query expansion, lightweight re-ranking.
+  - **Sonnet** only where Haiku visibly fails. The single guaranteed Sonnet
+    job is the weekly autoplan reasoning step (one call/week, small context).
+  - **Opus is not used.**
+- **Voyage AI** (`voyage-3-lite`) for embeddings. Generated server-side (relay
+  calls Voyage), stored client-side in SQLite as BLOBs, similarity computed
+  locally. Embeddings are computed once per recipe and cached forever; only
+  re-run on substantive recipe edits.
+- **Every AI output is cached.** Per-user view rewrites, import-parser output,
+  and query expansions are persisted (Yjs doc or derived table) so the same
+  prompt is never paid for twice.
+- **Embeddings are batched.** A Paprika import embeds the whole library in
+  one batched call, not one per recipe.
+- **Soft cap, hard cap.** The relay tracks per-month spend per provider
+  (Anthropic, Voyage). The soft cap warns the household; the hard cap
+  disables AI features (the non-AI fallback takes over) until the next
+  billing period or a manual override.
 - Every AI feature has a **non-AI fallback** so the app stays useful when
-  offline or when keys are misconfigured.
+  offline, when keys are misconfigured, or when the budget cap is hit.
 
 ## 8. Photo storage: Cloudflare R2
 
@@ -194,7 +209,7 @@ kitchen-gremlin/
 ├─ packages/
 │  ├─ schema/       # Shared TS types, Zod schemas, Yjs shapes
 │  ├─ sync/         # Yjs <-> SQLite materialiser
-│  ├─ importers/    # Paprika, web URL, OCR
+│  ├─ importers/    # Paprika, web URL, paste-text
 │  └─ ai/           # Claude / Voyage client wrappers
 ├─ docs/             # Specs (this file lives in the repo root for now)
 └─ .github/workflows/

@@ -59,6 +59,11 @@ All three layers, working together:
 ### 4.3 Meal planner
 **Paprika feature parity first**, plus *optional* constraint-driven autoplan:
 > *"3 quick weeknights, one veg night, one fancy Saturday, use the leeks."*
+
+Autoplan inputs in v1: empty slots and user-locked entries; the recent cook
+log (avoid repeats); ratings (bias toward favourites); attendee dietary and
+allergen filters. Date-aware seasonality hints are **not** in v1.
+
 Autoplan proposes; user always edits. Never silently changes a planned week.
 
 ### 4.4 Shopping list (the kitchen sink)
@@ -78,14 +83,21 @@ Autoplan proposes; user always edits. Never silently changes a planned week.
 - Voice control is **not** in v1.
 
 ### 4.6 Imports (day one)
-- **Web URL** — robust scraping: schema.org/Recipe first, Claude fallback for
-  messy blogs.
-- **Photo / OCR** — cookbook page or handwritten card; OCR + Claude extracts
-  structured recipe.
-- **Other apps' exports** — Paprika export is the priority; Mealie/Tandoor/NYT
-  Cooking are nice-to-haves.
+v1 ships three import paths and nothing else:
+- **Paprika export** — `.paprikarecipes` archive parser. This is the
+  household's migration path and the first thing v1 must do well. Lossless
+  within the scope of §4.7. Tested against a real export from week one. See
+  [PAPRIKA.md](./PAPRIKA.md) for the format reference and field mapping.
+- **Web URL** — robust scraping: schema.org/Recipe first, Claude (Haiku)
+  fallback for messy blogs.
+- **Paste-text** — paste from anywhere (blog body, email, notes app, message
+  thread); Claude extracts a structured recipe. Catches everything that's
+  text-shaped without needing a URL.
 
-Share-sheet imports from iOS/Android are deferred to v2.
+Deferred to v2:
+- **Photo / OCR** for cookbook pages and handwritten cards.
+- **Share-sheet imports** from iOS/Android.
+- **Other apps' exports** (Mealie, Tandoor, NYT Cooking).
 
 ### 4.7 Migration from Paprika
 **Recipes + metadata, lossless within that scope.** Must bring across:
@@ -96,6 +108,11 @@ Share-sheet imports from iOS/Android are deferred to v2.
 - Ratings.
 
 Not required v1: planner history, shopping-list state.
+
+**Day-one flow.** The app ships with no seed library. The first action a new
+household takes after install is "Import Paprika archive." Until that import
+runs cleanly against the household's real `.paprikarecipes` export, v1 is
+not done.
 
 ## 5. Non-goals (explicit)
 
@@ -117,10 +134,13 @@ If a feature smells like it serves one of these, push back.
 - **Open-source codebase.** Public repo. Anyone (incl. us) can fork and run it.
 - **Portable export, anytime.** One-click dump of everything as portable JSON
   + Markdown + photos. No data hostage.
-- **AI features powered by Claude (cloud).** Haiku for cheap/high-volume jobs
-  (formatting, parsing, synonym expansion); Sonnet/Opus for hard parsing,
-  semantic search ranking, autoplan reasoning. Costs are accepted, but a
-  "no-AI" fallback path must exist for every AI feature.
+- **AI features powered by Claude (cloud), on a frugal budget.** Target
+  ceiling **~£5/month for the whole household**. Haiku is the default model;
+  Sonnet only where Haiku visibly fails (the weekly autoplan reasoning step,
+  hardest imports); Opus is not used. Embeddings, import parses, and
+  per-user view rewrites are computed once and cached. Every AI feature has
+  a "no-AI" fallback so the app stays useful when offline, when keys are
+  misconfigured, or when the budget cap is hit.
 
 ## 7. Design direction
 
@@ -152,5 +172,7 @@ These are known unknowns to resolve before, or during, the relevant slice:
    becoming a chore? (This is the make-or-break for "pantry-aware" features.)
 6. **Aisle layout learning.** Manual ordering, learned-from-taps, or
    crowdsourced per store?
-7. **Paprika importer fidelity.** Test against a real export early — Paprika's
-   format is the spec, and surprises will be found.
+7. **Paprika importer fidelity.** Working reference in
+   [PAPRIKA.md](./PAPRIKA.md), but Paprika has no published schema — the
+   real export is the spec, and surprises will be found. Validation plan in
+   PAPRIKA.md §7.
