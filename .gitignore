@@ -10,6 +10,9 @@ dist/
 docs/imports/*.paprikarecipes
 docs/imports/*.paprikarecipe
 
+# TypeScript build artifacts
+*.tsbuildinfo
+
 # OS / editor
 .DS_Store
 Thumbs.db
