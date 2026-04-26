@@ -1,0 +1,16 @@
+node_modules/
+.svelte-kit/
+build/
+dist/
+.env
+.env.*
+!.env.example
+
+# Personal data — never commit
+docs/imports/*.paprikarecipes
+docs/imports/*.paprikarecipe
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.local
