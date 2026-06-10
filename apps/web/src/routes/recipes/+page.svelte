@@ -3,21 +3,73 @@
 	import { getDb } from '$lib/db/index.js';
 	import { buildFtsQuery } from '$lib/search/query.js';
 	import { OpfsPhotoStore } from '$lib/photos/opfs-store.js';
-	import type { RecipeSummary } from '$lib/db/client.js';
+	import type { RecipeSummary, SearchFilters, TagCount } from '$lib/db/client.js';
 
 	let query = $state('');
 	let results = $state<RecipeSummary[]>([]);
 	let loading = $state(true);
 	let photoUrls = $state<Map<string, string>>(new Map());
 
+	// Faceted filters (SPEC §4.2)
+	let showFilters = $state(false);
+	let allTags = $state<TagCount[]>([]);
+	let selectedTags = $state<string[]>([]);
+	let minRating = $state(0);
+	let maxTotalMins = $state(0); // 0 = any
+	let includeIngredients = $state('');
+	let excludeIngredients = $state('');
+
 	const photoStore = new OpfsPhotoStore();
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+	function splitTerms(input: string): string[] {
+		return input
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
+	}
+
+	function buildFilters(): SearchFilters {
+		const filters: SearchFilters = {};
+		if (selectedTags.length > 0) filters.tags = [...selectedTags];
+		if (minRating > 0) filters.minRating = minRating;
+		if (maxTotalMins > 0) filters.maxTotalMins = maxTotalMins;
+		const include = splitTerms(includeIngredients);
+		if (include.length > 0) filters.includeIngredients = include;
+		const exclude = splitTerms(excludeIngredients);
+		if (exclude.length > 0) filters.excludeIngredients = exclude;
+		return filters;
+	}
+
+	const activeFilterCount = $derived(
+		selectedTags.length +
+			(minRating > 0 ? 1 : 0) +
+			(maxTotalMins > 0 ? 1 : 0) +
+			splitTerms(includeIngredients).length +
+			splitTerms(excludeIngredients).length,
+	);
+
+	function toggleTag(tag: string) {
+		selectedTags = selectedTags.includes(tag)
+			? selectedTags.filter((t) => t !== tag)
+			: [...selectedTags, tag];
+		search(query);
+	}
+
+	function clearFilters() {
+		selectedTags = [];
+		minRating = 0;
+		maxTotalMins = 0;
+		includeIngredients = '';
+		excludeIngredients = '';
+		search(query);
+	}
+
 	async function search(q: string) {
 		const db = await getDb();
 		const ftsQuery = q.trim() ? buildFtsQuery(q) : '';
-		const newResults = await db.searchRecipes({ query: ftsQuery, limit: 100 });
+		const newResults = await db.searchRecipes({ query: ftsQuery, limit: 100, filters: buildFilters() });
 		results = newResults;
 
 		// Load photo URLs for visible results
@@ -43,6 +95,8 @@
 	}
 
 	onMount(async () => {
+		const db = await getDb();
+		allTags = await db.listTags();
 		await search('');
 		loading = false;
 	});
@@ -64,7 +118,74 @@
 			class="search-input"
 			aria-label="Search recipes"
 		/>
+		<button class="btn-filter" onclick={() => (showFilters = !showFilters)} aria-expanded={showFilters}>
+			Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+		</button>
 	</div>
+
+	{#if showFilters}
+		<div class="filters">
+			<div class="filter-row">
+				<label class="filter-field">
+					<span class="filter-label">Min rating</span>
+					<select bind:value={minRating} onchange={() => search(query)}>
+						<option value={0}>Any</option>
+						<option value={3}>3+ stars</option>
+						<option value={4}>4+ stars</option>
+						<option value={5}>5 stars</option>
+					</select>
+				</label>
+				<label class="filter-field">
+					<span class="filter-label">Max total time</span>
+					<select bind:value={maxTotalMins} onchange={() => search(query)}>
+						<option value={0}>Any</option>
+						<option value={15}>15 min</option>
+						<option value={30}>30 min</option>
+						<option value={45}>45 min</option>
+						<option value={60}>1 hour</option>
+						<option value={90}>1½ hours</option>
+					</select>
+				</label>
+				<label class="filter-field">
+					<span class="filter-label">Must use (comma-separated)</span>
+					<input
+						type="text"
+						bind:value={includeIngredients}
+						onchange={() => search(query)}
+						placeholder="e.g. leeks"
+					/>
+				</label>
+				<label class="filter-field">
+					<span class="filter-label">Without (comma-separated)</span>
+					<input
+						type="text"
+						bind:value={excludeIngredients}
+						onchange={() => search(query)}
+						placeholder="e.g. mushrooms"
+					/>
+				</label>
+			</div>
+
+			{#if allTags.length > 0}
+				<div class="tag-filter" role="group" aria-label="Filter by tag">
+					{#each allTags as { tag, count } (tag)}
+						<button
+							class="tag-chip"
+							class:tag-chip--active={selectedTags.includes(tag)}
+							onclick={() => toggleTag(tag)}
+							aria-pressed={selectedTags.includes(tag)}
+						>
+							{tag} <span class="tag-count">{count}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			{#if activeFilterCount > 0}
+				<button class="btn-clear" onclick={clearFilters}>Clear filters</button>
+			{/if}
+		</div>
+	{/if}
 
 	{#if loading}
 		<p class="muted">Loading…</p>
@@ -121,6 +242,12 @@
 		margin: 0;
 	}
 
+	.search-bar {
+		align-items: center;
+		display: flex;
+		gap: var(--size-3);
+	}
+
 	.search-input {
 		background-color: var(--color-bg-subtle);
 		border: 1px solid var(--color-border);
@@ -130,6 +257,88 @@
 		padding: var(--size-3) var(--size-4);
 		width: 100%;
 		max-width: 36rem;
+	}
+
+	.btn-filter,
+	.btn-clear {
+		background-color: var(--color-bg-subtle);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-2);
+		color: var(--color-text);
+		cursor: pointer;
+		font-size: var(--font-size-1);
+		padding: var(--size-2) var(--size-4);
+		white-space: nowrap;
+	}
+
+	.btn-clear {
+		align-self: flex-start;
+	}
+
+	.filters {
+		background-color: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-4);
+		padding: var(--size-4);
+	}
+
+	.filter-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-4);
+	}
+
+	.filter-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-1);
+	}
+
+	.filter-field select,
+	.filter-field input {
+		background-color: var(--color-bg-subtle);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-2);
+		color: var(--color-text);
+		font-size: var(--font-size-1);
+		padding: var(--size-2) var(--size-3);
+	}
+
+	.filter-label {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-0);
+		font-weight: var(--font-weight-6);
+	}
+
+	.tag-filter {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2);
+		max-height: 10rem;
+		overflow-y: auto;
+	}
+
+	.tag-chip {
+		background-color: var(--color-bg-subtle);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-round);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		font-size: var(--font-size-0);
+		padding: var(--size-1) var(--size-3);
+	}
+
+	.tag-chip--active {
+		background-color: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-accent-text);
+	}
+
+	.tag-count {
+		opacity: 0.7;
 	}
 
 	.search-input:focus {

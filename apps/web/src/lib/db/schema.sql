@@ -69,3 +69,34 @@ CREATE TRIGGER IF NOT EXISTS recipes_fts_delete
 	INSERT INTO recipes_fts(recipes_fts, recipe_id, title, ingredients_text, steps_text, notes, tags)
 		VALUES('delete', old.id, '', '', '', '', '');
 END;
+
+-- Meal planner: one row per planned slot. recipe_id is nullable so note-only
+-- entries ("leftovers", "eating out") are valid plan entries.
+CREATE TABLE IF NOT EXISTS plan_entries (
+	id TEXT PRIMARY KEY,
+	date TEXT NOT NULL,            -- YYYY-MM-DD (local)
+	slot TEXT NOT NULL DEFAULT 'dinner',  -- breakfast | lunch | dinner
+	recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
+	note TEXT,
+	created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plan_entries_date ON plan_entries(date);
+
+-- Shopping list: stores raw ingredient lines; consolidation happens at
+-- render time (@kitchen-gremlin/shopping) so the merge logic can evolve
+-- without a data migration.
+CREATE TABLE IF NOT EXISTS shopping_items (
+	id TEXT PRIMARY KEY,
+	text TEXT NOT NULL,
+	checked INTEGER NOT NULL DEFAULT 0,
+	recipe_id TEXT,                -- provenance only; no FK so recipes can be deleted freely
+	created_at TEXT NOT NULL
+);
+
+-- Cook log: feeds "last cooked" display/filters and the future autoplan.
+CREATE TABLE IF NOT EXISTS cook_log (
+	id TEXT PRIMARY KEY,
+	recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+	cooked_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cook_log_recipe ON cook_log(recipe_id);

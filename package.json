@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "bun run --cwd apps/web dev",
 		"build": "bun run --cwd apps/web build",
-		"typecheck": "bun run --cwd apps/web check && tsc --noEmit -p packages/schema/tsconfig.json && tsc --noEmit -p packages/importers/tsconfig.json",
+		"typecheck": "bun run --cwd apps/web check && tsc --noEmit -p packages/schema/tsconfig.json && tsc --noEmit -p packages/importers/tsconfig.json && tsc --noEmit -p packages/shopping/tsconfig.json",
 		"test": "vitest run",
 		"lint": "eslint ."
 	},
