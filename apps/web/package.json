@@ -24,6 +24,7 @@
 	"dependencies": {
 		"@kitchen-gremlin/importers": "workspace:*",
 		"@kitchen-gremlin/schema": "workspace:*",
+		"@kitchen-gremlin/shopping": "workspace:*",
 		"@sqlite.org/sqlite-wasm": "^3.53.0-build1",
 		"open-props": "^1.7.23"
 	}

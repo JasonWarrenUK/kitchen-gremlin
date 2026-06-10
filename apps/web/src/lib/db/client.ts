@@ -1,7 +1,14 @@
 import type { Recipe } from '@kitchen-gremlin/schema';
-import type { RecipeSummary, SearchOptions } from './worker.js';
+import type {
+	PlanEntry,
+	RecipeSummary,
+	SearchFilters,
+	SearchOptions,
+	ShoppingItemRow,
+	TagCount,
+} from './worker.js';
 
-export type { RecipeSummary, SearchOptions };
+export type { PlanEntry, RecipeSummary, SearchFilters, SearchOptions, ShoppingItemRow, TagCount };
 
 type Resolve<T> = (value: T) => void;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,5 +83,64 @@ export class DbClient {
 	async countRecipes(): Promise<number> {
 		const result = await this.call<{ count: number }>({ type: 'countRecipes' });
 		return result.count;
+	}
+
+	async listTags(): Promise<TagCount[]> {
+		const result = await this.call<{ tags: TagCount[] }>({ type: 'listTags' });
+		return result.tags;
+	}
+
+	async getPlan(from: string, to: string): Promise<PlanEntry[]> {
+		const result = await this.call<{ entries: PlanEntry[] }>({ type: 'getPlan', from, to });
+		return result.entries;
+	}
+
+	async addPlanEntry(entry: {
+		id: string;
+		date: string;
+		slot: string;
+		recipeId: string | null;
+		note: string | null;
+	}): Promise<void> {
+		await this.call({ type: 'addPlanEntry', entry });
+	}
+
+	async removePlanEntry(id: string): Promise<void> {
+		await this.call({ type: 'removePlanEntry', id });
+	}
+
+	async listShoppingItems(): Promise<ShoppingItemRow[]> {
+		const result = await this.call<{ items: ShoppingItemRow[] }>({ type: 'listShoppingItems' });
+		return result.items;
+	}
+
+	async addShoppingItems(items: { id: string; text: string; recipeId: string | null }[]): Promise<void> {
+		await this.call({ type: 'addShoppingItems', items });
+	}
+
+	async setShoppingChecked(ids: string[], checked: boolean): Promise<void> {
+		await this.call({ type: 'setShoppingChecked', ids, checked });
+	}
+
+	async removeShoppingItems(ids: string[]): Promise<void> {
+		await this.call({ type: 'removeShoppingItems', ids });
+	}
+
+	async clearShopping(onlyChecked: boolean): Promise<void> {
+		await this.call({ type: 'clearShopping', onlyChecked });
+	}
+
+	async logCook(recipeId: string): Promise<void> {
+		await this.call({ type: 'logCook', recipeId });
+	}
+
+	async getLastCooked(recipeId: string): Promise<string | null> {
+		const result = await this.call<{ lastCooked: string | null }>({ type: 'getLastCooked', recipeId });
+		return result.lastCooked;
+	}
+
+	async exportLibrary(): Promise<Recipe[]> {
+		const result = await this.call<{ recipes: Recipe[] }>({ type: 'exportLibrary' });
+		return result.recipes;
 	}
 }

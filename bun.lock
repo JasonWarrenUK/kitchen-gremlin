@@ -21,6 +21,7 @@
       "dependencies": {
         "@kitchen-gremlin/importers": "workspace:*",
         "@kitchen-gremlin/schema": "workspace:*",
+        "@kitchen-gremlin/shopping": "workspace:*",
         "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
         "open-props": "^1.7.23",
       },
@@ -52,6 +53,13 @@
       "dependencies": {
         "zod": "^3.23.0",
       },
+      "devDependencies": {
+        "vitest": "^2.1.0",
+      },
+    },
+    "packages/shopping": {
+      "name": "@kitchen-gremlin/shopping",
+      "version": "0.0.1",
       "devDependencies": {
         "vitest": "^2.1.0",
       },
@@ -151,6 +159,8 @@
     "@kitchen-gremlin/importers": ["@kitchen-gremlin/importers@workspace:packages/importers"],
 
     "@kitchen-gremlin/schema": ["@kitchen-gremlin/schema@workspace:packages/schema"],
+
+    "@kitchen-gremlin/shopping": ["@kitchen-gremlin/shopping@workspace:packages/shopping"],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 

@@ -3,14 +3,71 @@
 	import { page } from '$app/stores';
 	import { getDb } from '$lib/db/index.js';
 	import { OpfsPhotoStore } from '$lib/photos/opfs-store.js';
+	import { viewPrefs } from '$lib/prefs.svelte.js';
+	import { toDateKey } from '$lib/plan/dates.js';
 	import type { Recipe } from '@kitchen-gremlin/schema';
 
 	let recipe: Recipe | null = $state(null);
 	let heroUrl: string | null = $state(null);
 	let loading = $state(true);
 	let notFound = $state(false);
+	let lastCooked: string | null = $state(null);
+
+	// Action feedback / dialogs
+	let shoppingAdded = $state(false);
+	let showPlanForm = $state(false);
+	let planDate = $state(toDateKey(new Date()));
+	let planSlot = $state('dinner');
+	let planAdded = $state(false);
+	let cookLogged = $state(false);
+
+	// Ephemeral tick-state for checklist mode (per visit, not persisted)
+	let tickedSteps = $state<boolean[]>([]);
 
 	const photoStore = new OpfsPhotoStore();
+
+	async function addToShoppingList() {
+		const r = recipe;
+		if (!r) return;
+		const db = await getDb();
+		await db.addShoppingItems(
+			r.ingredients.map((ing) => ({ id: crypto.randomUUID(), text: ing.text, recipeId: r.id })),
+		);
+		shoppingAdded = true;
+		setTimeout(() => (shoppingAdded = false), 2500);
+	}
+
+	async function addToPlan() {
+		const r = recipe;
+		if (!r) return;
+		const db = await getDb();
+		await db.addPlanEntry({
+			id: crypto.randomUUID(),
+			date: planDate,
+			slot: planSlot,
+			recipeId: r.id,
+			note: null,
+		});
+		showPlanForm = false;
+		planAdded = true;
+		setTimeout(() => (planAdded = false), 2500);
+	}
+
+	async function markCooked() {
+		const r = recipe;
+		if (!r) return;
+		const db = await getDb();
+		await db.logCook(r.id);
+		lastCooked = new Date().toISOString();
+		cookLogged = true;
+		setTimeout(() => (cookLogged = false), 2500);
+	}
+
+	function formatLastCooked(iso: string): string {
+		return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' }).format(
+			new Date(iso),
+		);
+	}
 
 	onMount(() => {
 		const id = $page.params['id'];
@@ -29,6 +86,8 @@
 				return;
 			}
 			recipe = r;
+			tickedSteps = r.steps.map(() => false);
+			lastCooked = await db.getLastCooked(r.id);
 			const firstPhotoId = r.photoIds[0];
 			if (firstPhotoId) {
 				try {
@@ -143,9 +202,54 @@
 					{/each}
 				</ul>
 			{/if}
+
+			<div class="actions">
+				<a href="/recipes/{recipe.id}/cook" class="btn btn--primary">Cooking mode</a>
+				<button class="btn" onclick={() => (showPlanForm = !showPlanForm)}>
+					{planAdded ? 'Added to plan ✓' : 'Add to plan'}
+				</button>
+				<button class="btn" onclick={addToShoppingList}>
+					{shoppingAdded ? 'Added to list ✓' : 'Add to shopping list'}
+				</button>
+				<button class="btn" onclick={markCooked}>
+					{cookLogged ? 'Logged ✓' : 'I cooked this'}
+				</button>
+			</div>
+
+			{#if showPlanForm}
+				<form
+					class="plan-form"
+					onsubmit={(e) => {
+						e.preventDefault();
+						addToPlan();
+					}}
+				>
+					<label>
+						<span class="form-label">Date</span>
+						<input type="date" bind:value={planDate} required />
+					</label>
+					<label>
+						<span class="form-label">Meal</span>
+						<select bind:value={planSlot}>
+							<option value="breakfast">Breakfast</option>
+							<option value="lunch">Lunch</option>
+							<option value="dinner">Dinner</option>
+						</select>
+					</label>
+					<button type="submit" class="btn btn--primary">Add</button>
+				</form>
+			{/if}
+
+			{#if lastCooked}
+				<p class="last-cooked">Last cooked {formatLastCooked(lastCooked)}</p>
+			{/if}
 		</header>
 
-		<div class="body">
+		<div
+			class="body"
+			class:relaxed={viewPrefs.current.relaxedLineHeight}
+			style:font-size="{viewPrefs.current.textScale}em"
+		>
 			<section class="ingredients">
 				<h2>Ingredients</h2>
 				{#each ingredientGroups as group}
@@ -162,11 +266,24 @@
 
 			<section class="steps">
 				<h2>Method</h2>
-				<ol>
-					{#each recipe.steps as step}
-						<li>{step}</li>
-					{/each}
-				</ol>
+				{#if viewPrefs.current.stepsAsChecklist}
+					<ul class="step-checklist">
+						{#each recipe.steps as step, i}
+							<li class:done={tickedSteps[i]}>
+								<label>
+									<input type="checkbox" bind:checked={tickedSteps[i]} />
+									<span>{step}</span>
+								</label>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<ol>
+						{#each recipe.steps as step}
+							<li>{step}</li>
+						{/each}
+					</ol>
+				{/if}
 			</section>
 
 			{#if recipe.notes}
@@ -286,10 +403,97 @@
 		padding: var(--size-1) var(--size-3);
 	}
 
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-3);
+	}
+
+	.btn {
+		background-color: var(--color-bg-subtle);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-2);
+		color: var(--color-text);
+		cursor: pointer;
+		font-size: var(--font-size-1);
+		font-weight: var(--font-weight-6);
+		padding: var(--size-2) var(--size-4);
+		text-decoration: none;
+	}
+
+	.btn--primary {
+		background-color: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-accent-text);
+	}
+
+	.plan-form {
+		align-items: flex-end;
+		background-color: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-card);
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-4);
+		padding: var(--size-4);
+	}
+
+	.plan-form label {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-1);
+	}
+
+	.plan-form input,
+	.plan-form select {
+		background-color: var(--color-bg-subtle);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-2);
+		color: var(--color-text);
+		padding: var(--size-2) var(--size-3);
+	}
+
+	.form-label {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-0);
+		font-weight: var(--font-weight-6);
+	}
+
+	.last-cooked {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-1);
+		margin: 0;
+	}
+
 	.body {
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-8);
+	}
+
+	.body.relaxed :is(li, p) {
+		line-height: var(--font-lineheight-5);
+	}
+
+	.step-checklist {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-3);
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.step-checklist label {
+		align-items: baseline;
+		cursor: pointer;
+		display: flex;
+		gap: var(--size-3);
+	}
+
+	.step-checklist li.done span {
+		color: var(--color-text-muted);
+		text-decoration: line-through;
 	}
 
 	.ingredients ul,

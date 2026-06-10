@@ -79,6 +79,35 @@ export const migrations: Migration[] = [
 			END;
 		`,
 	},
+	{
+		version: 2,
+		sql: `
+			CREATE TABLE IF NOT EXISTS plan_entries (
+				id TEXT PRIMARY KEY,
+				date TEXT NOT NULL,
+				slot TEXT NOT NULL DEFAULT 'dinner',
+				recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
+				note TEXT,
+				created_at TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS idx_plan_entries_date ON plan_entries(date);
+
+			CREATE TABLE IF NOT EXISTS shopping_items (
+				id TEXT PRIMARY KEY,
+				text TEXT NOT NULL,
+				checked INTEGER NOT NULL DEFAULT 0,
+				recipe_id TEXT,
+				created_at TEXT NOT NULL
+			);
+
+			CREATE TABLE IF NOT EXISTS cook_log (
+				id TEXT PRIMARY KEY,
+				recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+				cooked_at TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS idx_cook_log_recipe ON cook_log(recipe_id);
+		`,
+	},
 ];
 
 export async function runMigrations(

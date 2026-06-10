@@ -14,7 +14,10 @@
 		<a href="/" class="brand">Kitchen Gremlin</a>
 		<ul>
 			<li><a href="/recipes">Recipes</a></li>
+			<li><a href="/plan">Plan</a></li>
+			<li><a href="/shopping">Shopping</a></li>
 			<li><a href="/import">Import</a></li>
+			<li><a href="/settings">Settings</a></li>
 		</ul>
 	</nav>
 </header>
