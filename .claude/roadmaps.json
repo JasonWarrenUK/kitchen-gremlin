@@ -1,0 +1,70 @@
+[
+	{
+		"name": "Beyond MVP",
+		"path": "docs/roadmaps/BEYOND_MVP.md",
+		"archived": false,
+		"externalGates": [],
+		"milestones": [
+			{
+				"id": "M1",
+				"name": "MVP Hardening",
+				"goal": "Confirm what's built actually works before layering new architecture on top.",
+				"tasks": [
+					{ "id": "1HD.1", "description": "Audit Paprika import against real household export", "status": "todo", "dependsOn": [] },
+					{ "id": "1HD.2", "description": "Audit search & filters (FTS5, synonym expansion, facets)", "status": "todo", "dependsOn": [] },
+					{ "id": "1HD.3", "description": "Audit meal planner (week view, plan-to-shopping-list)", "status": "todo", "dependsOn": [] },
+					{ "id": "1HD.4", "description": "Audit shopping list (consolidation, tick-off, manual items)", "status": "todo", "dependsOn": [] },
+					{ "id": "1HD.5", "description": "Audit cooking mode (mise en place, timers, wake lock, cook log)", "status": "todo", "dependsOn": [] },
+					{ "id": "1HD.6", "description": "Audit per-user view prefs (text size, line spacing, checklist steps)", "status": "todo", "dependsOn": [] },
+					{ "id": "1HD.7", "description": "Audit portable export (JSON dump completeness)", "status": "todo", "dependsOn": [] }
+				]
+			},
+			{
+				"id": "M2",
+				"name": "Imports",
+				"goal": "Complete the three documented v1 import paths (only Paprika exists today).",
+				"tasks": [
+					{ "id": "2IM.1", "description": "Paste-text import (Claude extracts structured recipe from pasted text)", "status": "todo", "dependsOn": [] },
+					{ "id": "2IM.2", "description": "Web URL import (schema.org/Recipe parse, Claude fallback for messy blogs)", "status": "blocked", "dependsOn": ["2IM.1"] }
+				]
+			},
+			{
+				"id": "M3",
+				"name": "Architecture Spikes",
+				"goal": "Resolve open architecture questions before committing to a build.",
+				"tasks": [
+					{ "id": "3SP.1", "description": "Spike: sync substrate (Yjs vs simple last-write-wins relay)", "status": "todo", "dependsOn": [] },
+					{ "id": "3SP.2", "description": "Spike: graph layer for relationship queries (substitutions, pantry-match, ingredient graphs — Neo4j vs SQLite recursive CTEs vs defer)", "status": "todo", "dependsOn": [] },
+					{ "id": "3SP.3", "description": "Spike: embeddings approach (model choice, generation process, Voyage vs alternatives)", "status": "todo", "dependsOn": [] }
+				]
+			},
+			{
+				"id": "M4",
+				"name": "Semantic Search",
+				"goal": "Ship the killer feature (SPEC.md §3).",
+				"tasks": [
+					{ "id": "4SR.1", "description": "Build embeddings pipeline (per chosen approach from 3SP.3)", "status": "blocked", "dependsOn": ["3SP.3"] },
+					{ "id": "4SR.2", "description": "Semantic/similar-to search UI (\"like this but quicker\")", "status": "blocked", "dependsOn": ["4SR.1"] }
+				]
+			},
+			{
+				"id": "M5",
+				"name": "Sync & Auth",
+				"goal": "Multi-device household sync.",
+				"tasks": [
+					{ "id": "5SY.1", "description": "Build sync substrate (per chosen approach from 3SP.1)", "status": "blocked", "dependsOn": ["3SP.1"] },
+					{ "id": "5SY.2", "description": "Decide + build auth (passkeys + pairing, per SPEC.md §6, or reconsider)", "status": "blocked", "dependsOn": ["5SY.1"] }
+				]
+			},
+			{
+				"id": "M6",
+				"name": "Pantry & Aisle Spikes",
+				"goal": "Explore pantry-aware and aisle-learning UX, sequenced after existing systems ship.",
+				"tasks": [
+					{ "id": "6PA.1", "description": "Spike: pantry data entry UX (the \"make-or-break\" problem — SPEC.md §9.5)", "status": "blocked", "dependsOn": ["M1", "M2"] },
+					{ "id": "6PA.2", "description": "Spike: aisle-layout learning approach (manual/learned/crowdsourced — SPEC.md §9.6)", "status": "blocked", "dependsOn": ["M1", "M2"] }
+				]
+			}
+		]
+	}
+]
